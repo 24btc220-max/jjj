@@ -1,0 +1,11 @@
+# Major updates needed in frontend/index.html:
+
+1. Change S.score to S.trustScore (all occurrences)
+2. Change penalty values from 12,7,6,20,8,10 to 2.0,1.0,0.8,3.0,1.5,2.5
+3. Add mandatory field validation for name and exam ID
+4. Make verification require exactly 1 face (add face count check)
+5. Change screenshot from exam content to visited page
+6. Update thresholds: 85 for safe, <85 for -5 exam mark, ≤30 for block
+7. Add device detection with -2 trust penalty
+8. Add person detection with -1 trust penalty
+
