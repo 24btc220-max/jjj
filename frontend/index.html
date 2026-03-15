@@ -198,15 +198,24 @@ label.fl{font-family:'Inter',sans-serif;font-size:12px;letter-spacing:0;text-tra
 .modal-box{background:white;border-radius:12px;padding:28px;max-width:480px;width:100%;border:1px solid var(--border);box-shadow:0 10px 40px rgba(0,0,0,0.1)}
 .warn-modal .modal-box{border-color:var(--amber);box-shadow:0 10px 40px rgba(245,158,11,0.15)}
 .danger-modal .modal-box{border-color:var(--red);box-shadow:0 10px 40px rgba(239,68,68,0.15)}
-.space360-modal .modal-box{border-color:#a855f7;box-shadow:0 10px 40px rgba(168,85,247,0.15)}
-.space360-overlay{position:fixed;inset:0;background:rgba(168,85,247,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:3000;font-family:'Inter',sans-serif}
-.space360-overlay.hidden{display:none}
-.so-timer{font-size:72px;font-weight:900;color:white;margin:20px 0;text-shadow:0 2px 10px rgba(0,0,0,0.3)}
-.so-title{font-size:32px;font-weight:700;color:white;text-transform:uppercase;margin-bottom:20px;text-shadow:0 2px 8px rgba(0,0,0,0.2)}
-.so-text{font-size:18px;color:rgba(255,255,255,0.95);margin-bottom:30px;text-shadow:0 1px 4px rgba(0,0,0,0.2);max-width:600px;text-align:center;}
-.so-pulse{animation:pulse3 1.5s ease-in-out infinite}
-@keyframes pulse3{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.05);opacity:0.95}}
-.space360-modal .modal-title{color:#a855f7}.space360-modal .modal-score{color:#a855f7}
+/* 360-Degree Warning Modal */
+.warning-360-modal{position:fixed;inset:0;background:rgba(0,0,0,0.9);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:2000;padding:20px;animation:warningZoomIn 0.4s ease-out;-webkit-backdrop-filter:blur(8px)}
+.warning-360-modal.active{display:flex}
+@keyframes warningZoomIn{from{transform:scale(0.8);opacity:0}to{transform:scale(1);opacity:1}}
+.warning-360-box{background:linear-gradient(135deg,#fbbf24,#f59e0b);border:3px solid #d97706;border-radius:16px;padding:40px 32px;text-align:center;max-width:600px;box-shadow:0 20px 60px rgba(217,119,6,0.4);animation:warningPulse 1.5s ease-in-out infinite}
+@keyframes warningPulse{0%{transform:scale(1)}50%{transform:scale(1.02)}100%{transform:scale(1)}}
+.warning-360-title{font-family:'Inter',sans-serif;font-size:32px;font-weight:900;letter-spacing:0;color:#78350f;text-transform:uppercase;margin-bottom:16px;text-shadow:0 2px 4px rgba(0,0,0,0.1)}
+.warning-360-icon{font-size:56px;margin-bottom:12px;animation:warningIconSpin 3s linear infinite}
+@keyframes warningIconSpin{from{transform:rotateY(0deg)}to{transform:rotateY(360deg)}}
+.warning-360-msg{font-family:'Inter',sans-serif;font-size:18px;font-weight:700;color:#78350f;margin:16px 0 20px;line-height:1.5}
+.warning-360-timer{font-family:'Roboto Mono',monospace;font-size:48px;font-weight:900;color:#78350f;margin:20px 0;letter-spacing:2px}
+.warning-360-timer.urgency{animation:warningTimerPulse 0.5s ease-in-out}
+@keyframes warningTimerPulse{0%{transform:scale(1)}50%{transform:scale(1.1)}100%{transform:scale(1)}}
+.warning-360-desc{font-family:'Inter',sans-serif;font-size:13px;color:rgba(120,53,15,0.8);margin-top:16px;line-height:1.6}
+.warning-360-bar{height:6px;background:rgba(0,0,0,0.2);border-radius:3px;margin:20px 0;overflow:hidden}
+.warning-360-bar-fill{height:100%;background:linear-gradient(90deg,#ec4899,#f59e0b,#10b981);border-radius:3px;animation:barFill 10s linear forwards}
+@keyframes barFill{from{width:100%}to{width:0%}}
+.warning-360-rec{font-size:12px;color:rgba(120,53,15,0.7);margin-top:12px;font-weight:600}
 .modal-title{font-family:'Inter',sans-serif;font-size:18px;font-weight:700;letter-spacing:0;margin-bottom:12px;text-transform:uppercase;color:var(--text)}
 .warn-modal .modal-title{color:var(--amber)}.danger-modal .modal-title{color:var(--red)}
 .modal-score{font-family:'Inter',sans-serif;font-size:48px;font-weight:900;text-align:center;margin:12px 0;letter-spacing:-1px;color:var(--text)}
@@ -421,13 +430,20 @@ label.fl{font-family:'Inter',sans-serif;font-size:12px;letter-spacing:0;text-tra
   </div>
 </div>
 
-<div class="space360-overlay hidden" id="space360-overlay">
-  <div class="so-title so-pulse">🎯 360° ENVIRONMENT CHECK</div>
-  <div class="so-timer" id="so-timer">10</div>
-  <div class="so-text">Please show your complete environment.<br>Rotate and display your 360-degree space.<br>Your camera is recording this moment.</div>
+<!-- Modals -->
+<!-- 360-Degree Warning Modal -->
+<div class="warning-360-modal" id="warning-360-modal">
+  <div class="warning-360-box">
+    <div class="warning-360-icon" id="warning-360-icon">🔍</div>
+    <div class="warning-360-title">⚠ INTEGRITY CHECK</div>
+    <div class="warning-360-msg">Show Your 360° Space</div>
+    <div class="warning-360-desc">Move your camera to show your complete surroundings. Face the front, then rotate slowly to show your left, back, and right.</div>
+    <div class="warning-360-timer" id="warning-360-timer">10</div>
+    <div class="warning-360-bar"><div class="warning-360-bar-fill" id="warning-360-bar-fill"></div></div>
+    <div class="warning-360-rec">📹 Recording your environment...</div>
+  </div>
 </div>
 
-<!-- Modals -->
 <div class="modal warn-modal" id="warn-modal">
   <div class="modal-box">
     <div class="modal-title">⚠ INTEGRITY WARNING</div>
@@ -488,16 +504,16 @@ const API = { base: 'http://localhost:8000', ws: 'ws://localhost:8000', connecte
 const S = {
   trustScore:100, sessionId:null, startTime:null, timerSecs:45*60,
   candidateName:'', examId:'',
-  events:[], scoreHistory:[{t:0,s:100}],
+  events:[], scoreHistory:[{t:0,s:100}], trustScoreHistory:[{t:0,s:100}],
   verified:false, verifyConfidence:0,
   warnFired:false, dangerFired:false,
   idPhotoB64:null, webcamPhotoB64:null,
   frameCount:0, currentQ:0, answers:{},
   tabSwitches:0, tabIdleStart:null, totalIdleSecs:0,
-  speechTranscripts:[], backendMode:false,
-  randomWarningsTriggered:0, randomWarningsNeeded:4, randomWarningRecordings:[],
-  inWarningMode:false, warningStartTime:null, warningMediaRecorder:null, warningVideoChunks:[],
-  randomWarningTriggers:[], warningAt80:false,
+  speechTranscripts:[], backendMode:false, screenshots:[],
+  examMark:100, examBlockedReason:'',
+  // 360-degree warning system
+  warning360Fired:0, warning360Max:4, warning360Active:false, warning360RecordedFrames:[],
 };
 
 const PC = {
@@ -705,7 +721,9 @@ async function startExam() {
   S.startTime=Date.now();
   initScoreChart(); renderQ(); startTimer(); initAudioBars();
   initSpeechRecognition(); initTabMonitoring();
-  scheduleRandomWarnings(); // Initialize random 360° warning scheduler
+  
+  // Initialize 360-degree warning system
+  Warning360System.init();
 
   if(S.backendMode){
     await createBackendSession();
@@ -1168,102 +1186,10 @@ function storeTakeTabShot(b64){
 
 // ── Score UI ───────────────────────────────────────────────────────────────
 function updateScoreUI(){const e=document.getElementById('score-num');e.textContent=Math.round(S.trustScore);e.className=S.trustScore>=85?'sp-val hi':S.trustScore>=50?'sp-val md':'sp-val lo';}
-function checkAlerts(){
-  // Random 360 warning at trust score 80
-  if(S.trustScore<=80&&!S.warningAt80&&!S.inWarningMode){
-    S.warningAt80=true;
-    startRandomWarning('trust_80');
-  }
-  // Original logic
-  if(S.trustScore<=80&&!S.warnFired){S.warnFired=true;showModal('warn-modal',S.trustScore);}
-  if(S.trustScore<=55&&!S.dangerFired){S.dangerFired=true;clearInterval(examTimer);if(animFrame)cancelAnimationFrame(animFrame);if(speechRec)try{speechRec.stop();}catch(e){}showModal('danger-modal',S.trustScore);}
-}
-
-function startRandomWarning(trigger){
-  if(S.inWarningMode) return;
-  S.inWarningMode=true;
-  S.warningStartTime=Date.now();
-  document.getElementById('space360-overlay').classList.remove('hidden');
-  
-  // Start video recording
-  startWarningVideoRecording();
-  
-  let countdownSecs=10;
-  const countdownInterval=setInterval(()=>{
-    document.getElementById('so-timer').textContent=countdownSecs;
-    countdownSecs--;
-    if(countdownSecs<0){
-      clearInterval(countdownInterval);
-      endRandomWarning();
-    }
-  },1000);
-}
-
-function startWarningVideoRecording(){
-  try{
-    const canvas=document.getElementById('canvas');
-    if(!canvas) return;
-    const stream=canvas.captureStream(30);
-    const videoTrack=mediaStream.getVideoTracks()[0];
-    if(videoTrack) stream.addTrack(videoTrack);
-    const options={mimeType:'video/webm;codecs=vp9',videoBitsPerSecond:2500000};
-    if(!MediaRecorder.isTypeSupported(options.mimeType)){
-      options.mimeType='video/webm;codecs=vp8';
-    }
-    if(!MediaRecorder.isTypeSupported(options.mimeType)){
-      options.mimeType='video/webm';
-    }
-    S.warningMediaRecorder=new MediaRecorder(stream,options);
-    S.warningVideoChunks=[];
-    S.warningMediaRecorder.ondataavailable=e=>S.warningVideoChunks.push(e.data);
-    S.warningMediaRecorder.onpause=e=>{};
-    S.warningMediaRecorder.onstop=()=>{
-      const blob=new Blob(S.warningVideoChunks,{type:'video/webm'});
-      const url=URL.createObjectURL(blob);
-      S.randomWarningRecordings.push({trigger:S.lastWarningTrigger,timestamp:new Date().toISOString(),videoUrl:url,duration:10,blob:blob});
-      S.warningVideoChunks=[];
-    };
-    S.warningMediaRecorder.start();
-    logEvent('360° warning video recording started','info');
-  }catch(e){
-    console.warn('Warning video recording failed:',e);
-  }
-}
-
-function endRandomWarning(){
-  S.inWarningMode=false;
-  document.getElementById('space360-overlay').classList.add('hidden');
-  if(S.warningMediaRecorder&&S.warningMediaRecorder.state='recording'){
-    S.warningMediaRecorder.stop();
-  }
-  S.randomWarningsTriggered++;
-  logEvent(`360° space check completed. Warnings: ${S.randomWarningsTriggered}/${S.randomWarningsNeeded}`,'info');
-  S.events.push({
-    event_type:'space_360_warning',
-    time:fmtTime(Math.floor((Date.now()-S.startTime)/1000)),
-    penalty:0,
-    priority:'P2',
-    detail:`Random 360° environment check #${S.randomWarningsTriggered}`
-  });
-}
-
-function scheduleRandomWarnings(){
-  // Schedule 4 random warnings throughout the exam
-  const examDurationSecs=S.timerSecs;
-  const interval=Math.floor(examDurationSecs/5);  // spread them out
-  for(let i=1;i<=S.randomWarningsNeeded;i++){
-    const randomDelaySecs=Math.floor(Math.random()*interval)+(i-1)*interval+30;
-    setTimeout(()=>{
-      if(!S.dangerFired&&S.trustScore>30){
-        S.lastWarningTrigger=`random_${i}`;
-        startRandomWarning(`random_${i}`);
-      }
-    },randomDelaySecs*1000);
-  }
-}
+function checkAlerts(){if(S.trustScore<=80&&!S.warnFired){S.warnFired=true;showModal('warn-modal',S.trustScore);}if(S.trustScore<=55&&!S.dangerFired){S.dangerFired=true;clearInterval(examTimer);if(animFrame)cancelAnimationFrame(animFrame);if(speechRec)try{speechRec.stop();}catch(e){}showModal('danger-modal',S.trustScore);}}
 function initScoreChart(){const ctx=document.getElementById('scoreChart').getContext('2d');scoreChart=new Chart(ctx,{type:'line',data:{labels:['0:00'],datasets:[{data:[100],borderColor:'#10b981',borderWidth:2,fill:true,backgroundColor:'rgba(16,185,129,.1)',tension:.4,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,animation:false,scales:{x:{display:false},y:{min:0,max:100,grid:{color:'rgba(0,0,0,.05)'},ticks:{color:'#5a6b82',font:{size:9,family:'Inter'},maxTicksLimit:3}}},plugins:{legend:{display:false},tooltip:{enabled:false}}}});}
 function updateScoreChart(){if(!scoreChart)return;const el=Math.floor((Date.now()-S.startTime)/1000);scoreChart.data.labels.push(fmtTime(el));scoreChart.data.datasets[0].data.push(S.trustScore);if(scoreChart.data.labels.length>80){scoreChart.data.labels.shift();scoreChart.data.datasets[0].data.shift();}const c=S.trustScore>70?'#10b981':S.trustScore>50?'#f59e0b':'#ef4444';scoreChart.data.datasets[0].borderColor=c;scoreChart.update('none');S.trustScoreHistory.push({t:el,s:S.trustScore});}
-function startTimer(){examTimer=setInterval(()=>{S.timerSecs--;if(S.timerSecs<=0){clearInterval(examTimer);buildReport();}const td=document.getElementById('timer'),m=Math.floor(S.timerSecs/60),s=S.timerSecs%60;td.textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;td.className='timer'+(S.timerSecs<300?' urgent':S.timerSecs<600?' warn':'');},1000);}
+function startTimer(){examTimer=setInterval(()=>{S.timerSecs--;check360WarningTrigger();if(S.timerSecs<=0){clearInterval(examTimer);buildReport();}const td=document.getElementById('timer'),m=Math.floor(S.timerSecs/60),s=S.timerSecs%60;td.textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;td.className='timer'+(S.timerSecs<300?' urgent':S.timerSecs<600?' warn':'');},1000);}
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function updateParam(k,s,c){const se=document.getElementById(`ps-${k}`),ce=document.getElementById(`pc-${k}`);if(se)se.textContent=s;if(ce&&c!==undefined){ce.classList.remove('triggered','warn-state');if(c)ce.classList.add(c);}}
@@ -1346,26 +1272,6 @@ async function buildReport() {
     document.getElementById('screenshot-card').style.display='none';
   }
 
-  // Add 360-degree warning recordings to report
-  if(S.randomWarningRecordings && S.randomWarningRecordings.length>0){
-    const warningsCard=document.createElement('div');
-    warningsCard.className='card';
-    warningsCard.style.marginTop='20px';
-    warningsCard.innerHTML=`<div class="clabel">360° Environment Check Recordings (${S.randomWarningRecordings.length})</div>`;
-    warningsCard.innerHTML+=S.randomWarningRecordings.map((rec,idx)=>`
-      <div style="margin:12px 0;padding:12px;background:var(--bg);border-radius:8px;border:1px solid #d8b4fe">
-        <div style="font-size:12px;color:var(--text2);margin-bottom:8px">
-          <strong>Warning #${idx+1}:</strong> ${rec.trigger} — ${rec.timestamp.split('T')[1].substring(0,8)}
-        </div>
-        <video width="100%" height="180" style="border-radius:6px;background:#000" controls>
-          <source src="${rec.videoUrl}" type="video/webm">
-          Your browser does not support the video tag.
-        </video>
-      </div>
-    `).join('');
-    document.getElementById('ptable').parentElement.insertAdjacentElement('beforebegin',warningsCard);
-  }
-
   const evs=rptData?rptData.events||[]:S.events.filter(e=>e.penalty>0);
   document.getElementById('rpt-tl').innerHTML=evs.length===0?'<div style="padding:14px;color:var(--txt3);font-size:13px;text-align:center">No suspicious events — Clean session ✓</div>':evs.slice(-40).map(e=>`<div class="tl-item ${e.event_type==='voice_detected'||e.event_type==='speech'?'speech':e.priority==='P1'?'critical':'warning'}"><div class="tl-t">${e.time}</div><div><div class="tl-ev">${e.label}</div><div class="tl-det">${e.detail||''}</div><div class="tl-pen">−${e.penalty} pts → Score: ${e.trustScore_after}</div></div></div>`).join('');
 
@@ -1395,6 +1301,134 @@ function showScreenshotModal(idx){
 }
 
 function downloadReport(){const rpt={candidate:S.candidateName,examId:S.examId,date:new Date().toISOString(),finalScore:Math.round(S.trustScore),backendMode:S.backendMode,sessionId:S.sessionId,verified:S.verified,verifyConfidence:S.verifyConfidence,tabSwitches:S.tabSwitches,totalIdleSecs:S.totalIdleSecs,speechTranscripts:S.speechTranscripts,events:S.events.filter(e=>e.penalty>0),parameters:Object.fromEntries(Object.entries(PC).map(([k,v])=>[k,{count:v.count,totalPenalty:v.totalPenalty}])),scoreHistory:S.trustScoreHistory};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(rpt,null,2)],{type:'application/json'}));a.download=`examguard-${S.examId}-${Date.now()}.json`;a.click();}
+
+// ── 360-DEGREE WARNING SYSTEM ──────────────────────────────────────────────
+const Warning360System = {
+  scheduledTimes: [],
+  recordingFrames: [],
+  recordingStream: null,
+  
+  init() {
+    // Calculate scheduled warning times: 4 times total after first 20% of exam
+    const examDuration = S.timerSecs;
+    const firstPhaseEnd = Math.floor(examDuration * 0.2);
+    const remainingTime = examDuration - firstPhaseEnd;
+    const intervalSize = Math.floor(remainingTime / (S.warning360Max + 1));
+    
+    this.scheduledTimes = [];
+    for (let i = 1; i <= S.warning360Max; i++) {
+      const randomOffset = Math.random() * (intervalSize * 0.6); // ±30% variation
+      const scheduledTime = firstPhaseEnd + (i * intervalSize) + randomOffset;
+      this.scheduledTimes.push(Math.floor(scheduledTime));
+    }
+    this.scheduledTimes.sort((a, b) => a - b);
+    logEvent(`360° Warning scheduled for: ${this.scheduledTimes.map(t => fmtTime(t)).join(', ')}`, 'info');
+  },
+  
+  shouldTrigger(currentSecs) {
+    // Check if we're close to a scheduled time (within 2 second window)
+    for (let t of this.scheduledTimes) {
+      if (Math.abs(currentSecs - t) < 2 && !this.triggeredAt) {
+        this.triggeredAt = t;
+        return true;
+      }
+    }
+    return false;
+  },
+  
+  async trigger() {
+    if (S.warning360Active || S.warning360Fired >= S.warning360Max) return;
+    
+    S.warning360Active = true;
+    S.warning360Fired++;
+    this.recordingFrames = [];
+    
+    const modal = document.getElementById('warning-360-modal');
+    modal.classList.add('active');
+    
+    let timeLeft = 10;
+    const countdownInterval = setInterval(() => {
+      document.getElementById('warning-360-timer').textContent = timeLeft;
+      if (timeLeft <= 2) {
+        document.getElementById('warning-360-timer').classList.add('urgency');
+      }
+      timeLeft--;
+      if (timeLeft < 0) {
+        clearInterval(countdownInterval);
+        document.getElementById('warning-360-timer').classList.remove('urgency');
+        modal.classList.remove('active');
+        S.warning360Active = false;
+      }
+    }, 1000);
+    
+    // Start recording frames
+    this.startRecording();
+    
+    // Log event
+    logEvent(`360° Warning #${S.warning360Fired}: Show your 360° space`, 'warning');
+    S.events.push({
+      event_type: 'warning_360',
+      label: `360° Integrity Check #${S.warning360Fired}`,
+      penalty: 0,
+      occurrence: S.warning360Fired,
+      priority: 'P2',
+      time: fmtTime(Math.floor((Date.now() - S.startTime) / 1000)),
+      trustScore_after: S.trustScore,
+      detail: 'Environmental verification - 10 second recording'
+    });
+    
+    // Auto-close after 10 seconds
+    this.triggeredAt = null;
+    setTimeout(() => {
+      modal.classList.remove('active');
+      S.warning360Active = false;
+      this.stopRecording();
+    }, 10000);
+  },
+  
+  startRecording() {
+    const video = document.getElementById('exam-vid');
+    if (!video) return;
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    this.recordingFrames = [];
+    
+    const ctx = canvas.getContext('2d');
+    const frameCapture = () => {
+      if (!S.warning360Active) return;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      this.recordingFrames.push(canvas.toDataURL('image/jpeg', 0.6));
+      if (this.recordingFrames.length < 50) { // ~5 fps for 10 seconds
+        setTimeout(frameCapture, 200);
+      }
+    };
+    frameCapture();
+  },
+  
+  stopRecording() {
+    // Frames are captured and stored for report
+    if (this.recordingFrames.length > 0) {
+      logEvent(`360° Recording captured ${this.recordingFrames.length} frames`, 'info');
+      S.warning360RecordedFrames.push({
+        warning_num: S.warning360Fired,
+        frames: this.recordingFrames,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+};
+
+// Check for 360° warning trigger in exam timer
+function check360WarningTrigger() {
+  if (S.startTime && !S.warning360Active) {
+    const elapsedSecs = Math.floor((Date.now() - S.startTime) / 1000);
+    if (Warning360System.shouldTrigger(elapsedSecs)) {
+      Warning360System.trigger();
+    }
+  }
+}
 
 // ── INIT ───────────────────────────────────────────────────────────────────
 initVerifyCamera();
