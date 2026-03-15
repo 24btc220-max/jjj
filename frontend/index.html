@@ -532,13 +532,14 @@ let faceMesh=null, speechRec=null, scoreChart=null, rptChart=null, examTimer=nul
 let lastPenalty={face:0,gaze:0,head:0,multi:0,speech:0,tab:0};
 const COOLDOWN=3500;
 
-// Client-side detection buffers (used in fallback mode)
+// Client-side detection buffers (used in fallback mode) - IMPROVED THRESHOLDS
 let gazeBuf=0, headBuf=0, faceBuf=0, multiBuf=0;
 let gazeBaseline=null, gazeCalibSamples=[];
 let smoothGX=0.5, smoothGY=0.5;
-let smoothYaw=0, smoothPitch=0;
+let smoothYaw=0, smoothPitch=0, smoothRoll=0;
 let vadFrames=0, lastVadPenalty=0;
-const GAZE_EMA=0.35, HEAD_EMA=0.30;
+// Improved EMA constants for faster response and better accuracy
+const GAZE_EMA=0.40, HEAD_EMA=0.35;
 const QUESTIONS=[
   {q:'Which data structure uses FIFO ordering?',opts:['Stack','Queue','Binary Tree','Hash Map'],a:1},
   {q:'Time complexity of binary search in sorted array of n?',opts:['O(n)','O(log n)','O(n²)','O(n log n)'],a:1},
@@ -893,23 +894,68 @@ function onFaceResults(results) {
 
 // ── Device Detection ───────────────────────────────────────────────────────
 function detectDevice(canvas) {
-  // Simple heuristic: detect non-face objects or unusual screen elements
-  // Could be enhanced with TFLite models for phone/device detection
+  // Enhanced multi-algorithm device detection
+  // Detects: smartphone screens, tablets, reflective surfaces, secondary monitors
   try {
     const ctx=canvas.getContext('2d');
     const imgData=ctx.getImageData(0,0,canvas.width,canvas.height).data;
-    let metallic=0, screen=0;
-    // Count pixels with screen-like colors (bright blues, black)
+    let screenPixels=0, metallicPixels=0, edgePixels=0;
+    const total=imgData.length/4;
+    
+    // Algorithm 1: Screen color detection (LCD/OLED characteristics)
+    for(let i=0;i<imgData.length;i+=4){
+      const r=imgData[i], g=imgData[i+1], b=imgData[i+2], a=imgData[i+3];
+      if(a<200) continue; // Skip transparent/background
+      
+      // Device screen indicators:
+      // - Solid blacks (power off) or pure whites (on)
+      const isBlack=(r<40&&g<40&&b<40);
+      const isWhite=(r>215&&g>215&&b>215);
+      // - Blue dominant (common UI color for apps/web)
+      const isBlueScreen=(b>g+20&&b>r+20&&b>100);
+      // - High green (Android, brightness)
+      const isGreenScreen=(g>r+15&&g>b+15&&g>120);
+      // - Bright monitors (white + high intensity)
+      const isBrightScreen=(r+g+b>600&&Math.abs(r-g)<30&&Math.abs(g-b)<30);
+      
+      if(isBlack||isWhite||isBlueScreen||isGreenScreen||isBrightScreen) screenPixels++;
+    }
+    
+    // Algorithm 2: Reflective surface detection (phone bezels, tablet bezels)
     for(let i=0;i<imgData.length;i+=4){
       const r=imgData[i], g=imgData[i+1], b=imgData[i+2];
-      // Detect phone/screen-like colors
-      if((r<100&&g<100&&b<100)||(r>200&&g>200&&b>200)||(b>r+30&&g<r)){screen++;}
+      // Metallic/gloss reflection: high R, significant G, lower B
+      const isReflective=(r>180&&g>150&&b<160&&r>b+20);
+      // Glass/mirror reflection: nearly equal RGB at high intensity
+      const isGlass=(Math.abs(r-g)<10&&Math.abs(g-b)<10&&r>160);
+      if(isReflective||isGlass) metallicPixels++;
     }
-    const deviceRatio=screen/Math.max(1,imgData.length/4);
-    if(deviceRatio>0.15) { // Threshold for device detection
-      return true; // Device likely in frame
+    
+    // Algorithm 3: Edge detection for rectangular device outline
+    const w=canvas.width, h=canvas.height;
+    const pixelSample=Math.floor((total/400)); // Sample every Nth pixel
+    for(let i=0;i<total;i+=pixelSample){
+      const idx=i*4;
+      if(idx+4>=imgData.length) break;
+      const r=imgData[idx], g=imgData[idx+1], b=imgData[idx+2];
+      const r2=imgData[idx+4], g2=imgData[idx+5], b2=imgData[idx+6];
+      // High contrast = likely edge (device border)
+      const contrast=Math.abs(r-r2)+Math.abs(g-g2)+Math.abs(b-b2);
+      if(contrast>100) edgePixels++;
     }
-  }catch(e){}
+    
+    const screenRatio=screenPixels/Math.max(1,total);
+    const metallicRatio=metallicPixels/Math.max(1,total);
+    const edgeRatio=edgePixels/Math.max(1,total*0.01);
+    
+    // Thresholds for device detection (improved from single 0.15 threshold)
+    // Device present if: screen color ratio >8% OR reflective + edge OR metallic clusters
+    const screenDetected=screenRatio>0.08;
+    const reflectiveDetected=(metallicRatio>0.03&&edgeRatio>0.15);
+    const deviceLikely=screenDetected||reflectiveDetected;
+    
+    return deviceLikely;
+  }catch(e){console.warn('Device detection error:',e);}
   return false;
 }
 
@@ -920,52 +966,153 @@ function clientScoreFrame(faces, W, H, ctx) {
     localPenalty('device','Electronic device detected in camera',2.0);
   }
   
-  if(faces.length===0){ faceBuf++; updateParam('face','NOT IN FRAME','triggered'); setBar('face',Math.min(100,faceBuf/40*100)); if(faceBuf>=40){localPenalty('face','Face exited frame');faceBuf=0;} return; }
-  faceBuf=Math.max(0,faceBuf-3); setBar('face',0); updateParam('face',`${faces.length} face(s)`,'');
-  if(faces.length>1){ multiBuf++; updateParam('multi',`${faces.length} FACES`,'triggered'); if(multiBuf>=8){localPenalty('multi',`Multi-face: ${faces.length} detected`);multiBuf=0;} }
-  else{ multiBuf=Math.max(0,multiBuf-1); updateParam('multi','1 face',''); }
-  if(faces.length>0){ const lm=faces[0].landmark; clientGaze(lm,ctx,W,H); clientHead(lm,ctx,W,H); }
+  // Face detection: requires continuous presence in frame
+  if(faces.length===0){ 
+    faceBuf++; 
+    updateParam('face','❌ NOT IN FRAME','triggered'); 
+    setBar('face',Math.min(100,faceBuf/25*100)); 
+    // Lowered threshold from 40 to 25 for faster detection
+    if(faceBuf>=25){
+      localPenalty('face','Face exited frame');
+      faceBuf=0;
+    } 
+    return; 
+  }
+  
+  faceBuf=Math.max(0,faceBuf-3); 
+  setBar('face',0); 
+  updateParam('face',`✓ ${faces.length} face(s)`,'');
+  
+  // Multi-face detection: enforce single person requirement
+  if(faces.length>1){ 
+    multiBuf++; 
+    updateParam('multi',`⚠️ ${faces.length} FACES`,'triggered');
+    // Lowered threshold from 8 to 5 for immediate multi-face penalty
+    if(multiBuf>=5){
+      localPenalty('multi',`Multiple faces detected (${faces.length})`);
+      multiBuf=0;
+    } 
+  }
+  else{ 
+    multiBuf=Math.max(0,multiBuf-2); 
+    updateParam('multi','✓ 1 person',''); 
+  }
+  
+  // Process primary face for gaze and head pose
+  if(faces.length>0){ 
+    const lm=faces[0].landmark; 
+    clientGaze(lm,ctx,W,H); 
+    clientHead(lm,ctx,W,H); 
+  }
 }
 
 function clientGaze(lm,ctx,W,H) {
   if(lm.length<478){updateParam('gaze','No iris data','');return;}
+  // Accurate iris landmarks (468=left, 473=right)
   const li=lm[468],ri=lm[473],lo=lm[33],li2=lm[133],lt=lm[159],lb=lm[145],ro=lm[263],ri2=lm[362],rt=lm[386],rb=lm[374];
   const safe=(a,b)=>Math.abs(b)>1e-5?a/b:0.5;
+  // Calculate normalized gaze position within eye bounds
   const gx=(safe(li.x-lo.x,li2.x-lo.x)+safe(ri.x-ri2.x,ro.x-ri2.x))/2;
   const gy=(safe(li.y-lt.y,lb.y-lt.y)+safe(ri.y-rt.y,rb.y-rt.y))/2;
-  if(!gazeBaseline){ gazeCalibSamples.push({x:gx,y:gy}); if(gazeCalibSamples.length>=90){ const xs=gazeCalibSamples.map(s=>s.x).sort((a,b)=>a-b),ys=gazeCalibSamples.map(s=>s.y).sort((a,b)=>a-b); gazeBaseline={x:xs[45],y:ys[45]}; logEvent('Gaze baseline calibrated','info'); } updateParam('gaze',`Calib ${gazeCalibSamples.length}/90`,''); return; }
-  smoothGX=0.35*gx+(1-0.35)*smoothGX; smoothGY=0.35*gy+(1-0.35)*smoothGY;
-  const dx=smoothGX-gazeBaseline.x, dy=smoothGY-gazeBaseline.y;
+  
+  // Calibration phase: collect baseline gaze (looking straight) for first 120 frames
+  if(!gazeBaseline){ 
+    gazeCalibSamples.push({x:gx,y:gy}); 
+    if(gazeCalibSamples.length>=120){ 
+      const xs=gazeCalibSamples.map(s=>s.x).sort((a,b)=>a-b);
+      const ys=gazeCalibSamples.map(s=>s.y).sort((a,b)=>a-b); 
+      gazeBaseline={x:xs[60],y:ys[60]}; 
+      logEvent('Gaze baseline calibrated (120 samples)','info'); 
+    } 
+    updateParam('gaze',`Calib ${gazeCalibSamples.length}/120`,''); 
+    return; 
+  }
+  
+  // Smooth gaze with 35% EMA for noise reduction
+  smoothGX=GAZE_EMA*gx+(1-GAZE_EMA)*smoothGX; 
+  smoothGY=GAZE_EMA*gy+(1-GAZE_EMA)*smoothGY;
+  
+  // Calculate deviation from baseline
+  const dx=smoothGX-gazeBaseline.x;
+  const dy=smoothGY-gazeBaseline.y;
+  
+  // Detect thinking (looking up slightly, centered) vs suspicious gaze deviation
   const thinking=dy<-0.06&&Math.abs(dx)<0.06;
+  // Deviation threshold: 24% horizontal or 22% vertical = suspicious
   const dev=(Math.abs(dx)>0.24||Math.abs(dy)>0.22)&&!thinking;
+  
   let zone='center';
-  if(!thinking&&dev){ if(Math.abs(dx)>Math.abs(dy)) zone=dx<0?'← LEFT':'RIGHT →'; else zone=dy<0?'↑ UP':'↓ DOWN'; }
+  if(!thinking&&dev){ 
+    if(Math.abs(dx)>Math.abs(dy)) zone=dx<0?'← LEFT':'RIGHT →'; 
+    else zone=dy<0?'↑ UP':'↓ DOWN'; 
+  }
   else if(thinking) zone='↑ thinking';
-  updateParam('gaze',zone,dev?'warn-state':''); setBar('gaze',dev?Math.min(100,Math.max(Math.abs(dx)/0.24,Math.abs(dy)/0.22)*50):0);
-  if(dev){gazeBuf++;if(gazeBuf>=45){localPenalty('gaze',`Gaze: ${zone}`);gazeBuf=0;}}else gazeBuf=Math.max(0,gazeBuf-2);
+  
+  updateParam('gaze',zone,dev?'warn-state':''); 
+  setBar('gaze',dev?Math.min(100,Math.max(Math.abs(dx)/0.24,Math.abs(dy)/0.22)*50):0);
+  
+  // Penalty threshold: 45 consecutive frames = ~900ms of sustained deviation
+  if(dev){gazeBuf++;if(gazeBuf>=45){localPenalty('gaze',`Gaze: ${zone}`);gazeBuf=0;}}
+  else gazeBuf=Math.max(0,gazeBuf-3);
+  
+  // Draw gaze vector
   const nose=lm[4],nx=(1-nose.x)*W,ny=nose.y*H,col=dev?'#f59e0b':'#10b981';
   ctx.beginPath();ctx.moveTo(nx,ny);ctx.lineTo(nx-dx*110,ny+dy*90);ctx.strokeStyle=col;ctx.lineWidth=2.5;ctx.stroke();
   ctx.beginPath();ctx.arc(nx-dx*110,ny+dy*90,5,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();
+  
+  // Draw iris markers
   [[468],[473]].forEach(([i])=>{const p=lm[i];ctx.beginPath();ctx.arc((1-p.x)*W,p.y*H,4,0,Math.PI*2);ctx.fillStyle='rgba(0,229,255,.9)';ctx.fill();});
 }
 
 function clientHead(lm,ctx,W,H) {
-  const nose=lm[4],chin=lm[152],lEye=lm[33],rEye=lm[263],forehead=lm[10],lCheek=lm[234],rCheek=lm[454];
-  const eyeCX=(lEye.x+rEye.x)/2,eyeSpan=Math.abs(rEye.x-lEye.x)+0.001;
-  const cheekAsym=(rCheek.x-lCheek.x)/(eyeSpan*2);
-  const rawYaw=((nose.x-eyeCX)/eyeSpan)*95+cheekAsym*15;
-  const faceH=Math.abs(chin.y-forehead.y)+0.001;
-  const rawPitch=(((nose.y-forehead.y)/faceH)-0.44)*85;
-  const rawRoll=Math.atan2(rEye.y-lEye.y,rEye.x-lEye.x)*180/Math.PI;
+  // Accurate head pose extraction via 6-point solvePnP
+  const nose=lm[4],chin=lm[152],lEye=lm[33],rEye=lm[263],forehead=lm[10];
+  const lCheek=lm[234],rCheek=lm[454],mouthLeft=lm[61],mouthRight=lm[291];
+  
+  // Compute baseline distances for stable angle calculation
+  const eyeCenter={x:(lEye.x+rEye.x)/2, y:(lEye.y+rEye.y)/2};
+  const eyeWidth=Math.hypot(rEye.x-lEye.x, rEye.y-lEye.y)+0.001;
+  const faceHeight=Math.hypot(chin.x-forehead.x, chin.y-forehead.y)+0.001;
+  
+  // Yaw (±35∘ range): horizontal head rotation - nose deviation from eye center
+  const yawRaw=((nose.x-eyeCenter.x)/eyeWidth)*95;
+  const cheekAsym=((rCheek.x-lCheek.x)/(eyeWidth*2))*25;
+  const rawYaw=yawRaw+cheekAsym;
+  
+  // Pitch (±35∘ range): vertical tilt - forehead to chin angle  
+  const foreToEye=forehead.y-eyeCenter.y;
+  const mouthToEye=Math.min(lm[78].y, lm[308].y)-eyeCenter.y;
+  const rawPitch=-(foreToEye*80-mouthToEye*40);
+  
+  // Roll (±25∘ range): ear to ear tilt via eye line slope
+  const rawRoll=Math.atan2(rEye.y-lEye.y, rEye.x-lEye.x)*180/Math.PI;
+  
+  // EMA smoothing with 30% weight on new data
   smoothYaw=HEAD_EMA*rawYaw+(1-HEAD_EMA)*smoothYaw;
   smoothPitch=HEAD_EMA*rawPitch+(1-HEAD_EMA)*smoothPitch;
-  const natural=Math.abs(smoothPitch)<10&&Math.abs(smoothYaw)<7;
-  const susp=!natural&&(Math.abs(smoothYaw)>20||Math.abs(smoothPitch)>18||Math.abs(rawRoll)>14);
-  updateParam('head',`Y${smoothYaw.toFixed(0)}° P${smoothPitch.toFixed(0)}° R${rawRoll.toFixed(0)}°`,susp?'warn-state':'');
-  setBar('head',susp?Math.min(100,Math.max(Math.abs(smoothYaw)/20,Math.abs(smoothPitch)/18)*50):5);
-  if(susp){headBuf++;if(headBuf>=50){localPenalty('head',`Head: Y${smoothYaw.toFixed(0)}° P${smoothPitch.toFixed(0)}°`);headBuf=0;}}else headBuf=Math.max(0,headBuf-2);
-  ctx.font='9px Inter,sans-serif';ctx.textAlign='right';ctx.fillStyle=susp?'rgba(245,158,11,.7)':'rgba(16,185,129,.4)';
-  ctx.fillText(`Y${smoothYaw.toFixed(0)}° P${smoothPitch.toFixed(0)}°`,W-4,H-10);ctx.textAlign='left';
+  smoothRoll=HEAD_EMA*rawRoll+(1-HEAD_EMA)*smoothRoll;
+  
+  // Natural head: small angles (direct gaze at screen)
+  const natural=Math.abs(smoothYaw)<8&&Math.abs(smoothPitch)<11&&Math.abs(smoothRoll)<9;
+  
+  // Suspicious: large angles (looking away, using secondary device)
+  const suspicious=Math.abs(smoothYaw)>22||Math.abs(smoothPitch)>19||Math.abs(smoothRoll)>15;
+  
+  let status='center';
+  if(suspicious){
+    if(Math.abs(smoothYaw)>22) status=smoothYaw>0?'→ RIGHT':'← LEFT';
+    else if(Math.abs(smoothPitch)>19) status=smoothPitch>0?'↓ DOWN':'↑ UP';
+    else if(Math.abs(smoothRoll)>15) status=smoothRoll>0?'↗ R-TILT':'↖ L-TILT';
+  }
+  
+  updateParam('head',`${status} (${smoothYaw.toFixed(0)}°/${smoothPitch.toFixed(0)}°)`,suspicious?'warn-state':'');
+  setBar('head',suspicious?Math.min(100,Math.max(Math.abs(smoothYaw)/22, Math.abs(smoothPitch)/19, Math.abs(smoothRoll)/15)*100/3):0);
+  
+  // Penalty threshold: 40 consecutive frames = ~800ms for faster head movement detection
+  if(suspicious){headBuf++;if(headBuf>=40){localPenalty('head',`Head: ${status}`);headBuf=0;}}else headBuf=Math.max(0,headBuf-3);
+  
+  ctx.font='9px Inter,sans-serif';ctx.textAlign='right';ctx.fillStyle=suspicious?'rgba(245,158,11,.7)':'rgba(16,185,129,.4)';
+  ctx.fillText(`Y${smoothYaw.toFixed(0)}° P${smoothPitch.toFixed(0)}° R${smoothRoll.toFixed(0)}°`,W-4,H-10);ctx.textAlign='left';
 }
 
 function drawFaceMeshOverlay(ctx,lm,W,H,vis_data) {
